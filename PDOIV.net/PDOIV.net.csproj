@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+	<LangVersion>8.0</LangVersion>
+	<AssemblyName>PedDamageOverhaulIV.NET</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ScriptHookDotNet">
+      <HintPath>inc\ScriptHookDotNet.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+</Project>
