@@ -14,6 +14,51 @@ namespace PDOIV.net
     }
     public class PedDamageOverhaulIV : Script
     {
+        public bool SetKey(int toKey, out Keys key)
+        {
+            switch (toKey)
+            {
+                case 1:
+                    key = Keys.F1;
+                    return true;
+                case 2:
+                    key = Keys.F2;
+                    return true;
+                case 3:
+                    key = Keys.F3;
+                    return true;
+                case 4:
+                    key = Keys.F4;
+                    return true;
+                case 5:
+                    key = Keys.F5;
+                    return true;
+                case 6:
+                    key = Keys.F6;
+                    return true;
+                case 7:
+                    key = Keys.F7;
+                    return true;
+                case 8:
+                    key = Keys.F8;
+                    return true;
+                case 9:
+                    key = Keys.F9;
+                    return true;
+                case 10:
+                    key = Keys.F10;
+                    return true;
+                case 11:
+                    key = Keys.F11;
+                    return true;
+                case 12:
+                    key = Keys.F12;
+                    return true;
+                default:
+                    key = Keys.None;
+                    return false;
+            }
+        }
         public bool GetIniFile(string path, out Dictionary<string, string> dict)
         {
             if (File.Exists(path))
@@ -37,15 +82,15 @@ namespace PDOIV.net
                 dict = new Dictionary<string, string>();
                 return false;
             }
-            
-            
         }
 
-        bool bPDOEnabled = true;
+        bool bPDOEnabled = true, bPDODisabledDuringMissions = false, bIniFound = false, bShowNPCInfo = false, bLastTarget_IsAlive, bLastTarget_IsInjured, bLastTarget_IsRagdoll;
         Dictionary<Ped, PedClass> dPedMap = new Dictionary<Ped, PedClass>();
         Dictionary<string, string> dPDOIni;
         List<Ped> lPedsToRemove = new List<Ped>();
-        int iIntervalValue = 250, iUpperHealthThreshold = -45, iLowerHealthThreshold = -80, iMaxCombatDeaths = 10, iMaxFireDeaths = 17, iLoopsDone = 0, iClearDictAfterLoopsDone = 100, iClearingsDone = 0;
+        int iIntervalValue = 250, iUpperHealthThreshold = -45, iLowerHealthThreshold = -80, iMaxCombatDeaths = 10, iMaxFireDeaths = 17, iLoopsDone = 0, iClearDictAfterLoopsDone = 100, iClearingsDone = 0, iLastTarget_Health;
+        Keys kPDOToggleKey = Keys.F9, kShowNPCInfoToggleKey = Keys.F8;
+        Ped pLastTarget;
         string sTempIniValue;
 
         public PedDamageOverhaulIV()
@@ -57,6 +102,7 @@ namespace PDOIV.net
             {
                 if (GetIniFile(IniPath, out dPDOIni))
                 {
+                    bIniFound = true;
                     if (dPDOIni.TryGetValue("bEnablePDO", out sTempIniValue))
                     {
                         bPDOEnabled = Boolean.Parse(sTempIniValue);
@@ -84,18 +130,55 @@ namespace PDOIV.net
                     if (dPDOIni.TryGetValue("iClearNPCsAfterTickIntervals", out sTempIniValue))
                     {
                         iClearDictAfterLoopsDone = Int32.Parse(sTempIniValue);
-                    }                    
+                    }
+                    if (dPDOIni.TryGetValue("bDisablePDODuringMissions", out sTempIniValue))
+                    {
+                        bPDODisabledDuringMissions = Boolean.Parse(sTempIniValue);
+                    }
+                    if (dPDOIni.TryGetValue("bShowNPCInfo", out sTempIniValue))
+                    {
+                        bShowNPCInfo = Boolean.Parse(sTempIniValue);
+                    }
+                    if (dPDOIni.TryGetValue("iShowNPCInfoToggleKey", out sTempIniValue))
+                    {
+                        int tempKey = Int32.Parse(sTempIniValue);
+                        Keys key;
+                        if (SetKey(tempKey, out key))
+                        {
+                            kShowNPCInfoToggleKey = key;
+                        }
+                    }
+                    if (dPDOIni.TryGetValue("iPDOToggleKey", out sTempIniValue))
+                    {
+                        int tempKey = Int32.Parse(sTempIniValue);
+                        Keys key;
+                        if (SetKey(tempKey, out key))
+                        {
+                            kPDOToggleKey = key;
+                        }
+                    }
                 }
             }
 
             Interval = iIntervalValue;
-            BindKey(Keys.F9, new KeyPressDelegate(TogglePDO));
+            BindKey(kPDOToggleKey, new KeyPressDelegate(TogglePDO));
+            BindKey(kShowNPCInfoToggleKey, new KeyPressDelegate(ToggleShowNPCInfo));
             this.Tick += new EventHandler(this.PedDamageOverhaulIV_Tick);
         }
 
         private void PedDamageOverhaulIV_Tick(object sender, EventArgs e)
         {
-            if (bPDOEnabled)
+            bool bGreenLight = true;
+            
+            if (bPDODisabledDuringMissions)
+            {
+                if (Player.isOnMission)
+                {
+                    bGreenLight = false;
+                }
+            }
+
+            if (bPDOEnabled && bGreenLight)
             {
                 int iArraySize = 1024;
                 Ped[] aAllPeds = World.GetPeds(Player.Character.Position, 5000f, iArraySize);
@@ -157,6 +240,22 @@ namespace PDOIV.net
                     }
                 }
 
+                if (bShowNPCInfo)
+                {
+                    if (Player.GetTargetedPed() != null)
+                    {
+                        pLastTarget = Player.GetTargetedPed();
+                    }
+                    if (pLastTarget != null)
+                    {
+                        iLastTarget_Health = pLastTarget.Health;
+                        bLastTarget_IsAlive = pLastTarget.isAlive;
+                        bLastTarget_IsInjured = pLastTarget.isInjured;
+                        bLastTarget_IsRagdoll = pLastTarget.isRagdoll;
+                    }
+                    Game.DisplayText("NPC Health: " + iLastTarget_Health + "\nNPC IsAlive: " + bLastTarget_IsAlive + "\nNPC IsInjured: " + bLastTarget_IsInjured + "\nNPC IsRagdoll: " + bLastTarget_IsRagdoll);
+                }
+
                 iLoopsDone++;
 
                 if (iLoopsDone % iClearDictAfterLoopsDone == 0)
@@ -171,12 +270,24 @@ namespace PDOIV.net
             }
         }
 
+        private void ToggleShowNPCInfo()
+        {
+            bShowNPCInfo = !bShowNPCInfo;
+        }
+
         private void TogglePDO()
         {
             bPDOEnabled = !bPDOEnabled;
             if (bPDOEnabled)
             {
-                Game.DisplayText("PDO enabled.");
+                if (bIniFound)
+                {
+                    Game.DisplayText("PDO enabled.\nini-File found.");
+                }
+                else
+                {
+                    Game.DisplayText("PDO enabled.\nini-File not found. Default values loaded.");
+                }
             }
             else
             {
